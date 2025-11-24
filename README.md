@@ -54,6 +54,16 @@ Then run:
 flutter pub get
 ```
 
+## Apple Intelligence Requirement on macOS
+To use this package on macOS, you must enable Apple Intelligence in your system settings.
+Go to System `Settings → Apple Intelligence & Siri`, enable `Apple Intelligence`, and allow the system to finish downloading the required on-device models.
+Without this step, the Foundation Models framework will not be available and the package will return an availability error.
+
+</br>
+<img width="703" height="259" alt="SCR-20251124-ndla-4" src="https://github.com/user-attachments/assets/d96e625d-882f-42b7-8e7f-2cf9113d9597" />
+
+
+
 ## iOS Setup
 
 ### 1. Update iOS Deployment Target
