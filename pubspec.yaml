@@ -12,7 +12,6 @@ topics:
   - language-models
   - sessions
   - ios
-  - macos
 
 environment:
   sdk: ^3.8.1
