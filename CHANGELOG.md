@@ -1,3 +1,26 @@
+## 0.2.1
+
+### 📚 Documentation Improvements
+- Added comprehensive **Apple Intelligence enablement guide** for macOS users
+- Included visual setup instructions with screenshots for System Settings
+- Enhanced README with clear macOS configuration requirements
+- Added troubleshooting section for Apple Intelligence availability issues
+
+### 🐛 Bug Fixes
+- Improved error messaging for Apple Intelligence unavailability
+- Better handling of language/region settings that may prevent Apple Intelligence access
+- Enhanced availability check to provide more actionable feedback
+
+### 🛠 Platform Updates
+- Verified compatibility with macOS 26.1
+- Confirmed M1/M2/M3 chip support with Apple Intelligence
+- Updated example app with better status reporting
+
+### ⚠️ Important Notes
+- **macOS users must enable Apple Intelligence** in System Settings → Apple Intelligence & Siri
+- Language must be set to English (United States) for Apple Intelligence to function
+- On-device models must finish downloading before the framework becomes available
+
 ## 0.2.0
 
 **MAJOR UPDATE**: Complete implementation overhaul with proper Apple Foundation Models API compliance, cross-platform support, streaming capabilities, and enhanced features.

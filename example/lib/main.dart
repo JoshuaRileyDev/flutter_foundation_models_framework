@@ -46,25 +46,41 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _checkAvailability() async {
     setState(() {
       _isLoading = true;
-      _status = 'Checking availability...';
+      if (_status == 'Not checked') {
+        _status = 'Checking availability...';
+      }
     });
 
     try {
       final response = await FoundationModelsFramework.instance
           .checkAvailability();
-      setState(() {
-        _status = response.isAvailable
-            ? 'Available (iOS ${response.osVersion})'
-            : 'Not available: ${response.errorMessage}';
-      });
+
+      if (mounted) {
+        setState(() {
+          if (response.isAvailable) {
+            _status = 'Available (iOS ${response.osVersion})';
+            _isLoading = false;
+          } else if (response.reasonCode == 'model_not_ready') {
+            _status = 'Preparing assets... (Retrying in 3s)';
+            // Retry after 3 seconds
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                _checkAvailability();
+              }
+            });
+          } else {
+            _status = 'Not available: ${response.errorMessage}';
+            _isLoading = false;
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        _status = 'Error checking availability: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _status = 'Error checking availability: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 

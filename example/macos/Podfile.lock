@@ -1,0 +1,22 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - foundation_models_framework (0.2.0):
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - foundation_models_framework (from `Flutter/ephemeral/.symlinks/plugins/foundation_models_framework/macos`)
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  foundation_models_framework:
+    :path: Flutter/ephemeral/.symlinks/plugins/foundation_models_framework/macos
+
+SPEC CHECKSUMS:
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  foundation_models_framework: 9446452adf845ea34beb08d6814ca4de1f642f73
+
+PODFILE CHECKSUM: 26ee6f5033708847cf1376fbc9a71d19413c5b16
+
+COCOAPODS: 1.16.2

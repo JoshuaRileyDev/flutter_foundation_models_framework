@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'foundation_models_framework'
-  s.version          = '0.2.0'
+  s.version          = '0.2.1'
   s.summary          = 'A Flutter plugin for integrating with Apple\'s Foundation Models framework.'
   s.description      = <<-DESC
 A Flutter plugin that provides access to Apple's Foundation Models framework for on-device AI capabilities including session-based language model interactions.
@@ -10,7 +10,7 @@ A Flutter plugin that provides access to Apple's Foundation Models framework for
   s.author           = { 'Your Company' => 'email@example.com' }
 
   s.source           = { :path => '.' }
-  s.source_files     = '../ios/Classes/**/*'
+  s.source_files     = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
   s.platform = :osx, '15.0'
 
