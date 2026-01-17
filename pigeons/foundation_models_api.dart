@@ -7,6 +7,60 @@ import 'package:pigeon/pigeon.dart';
     dartPackageName: 'foundation_models_framework',
   ),
 )
+/// Data class describing a tool parameter schema for function calling
+class ToolParameterSchema {
+  const ToolParameterSchema({
+    required this.type,
+    this.description,
+    this.properties,
+    this.required,
+    this.items,
+  });
+
+  final String type;
+  final String? description;
+  final Map<String, ToolParameterSchema>? properties;
+  final List<String>? required;
+  final ToolParameterSchema? items;
+}
+
+/// Data class describing a tool/function that can be called by the model
+class ToolDefinition {
+  const ToolDefinition({
+    required this.name,
+    this.description,
+    this.parameters,
+  });
+
+  final String name;
+  final String? description;
+  final ToolParameterSchema? parameters;
+}
+
+/// Data class representing a tool call made by the model
+class ToolCall {
+  const ToolCall({
+    required this.id,
+    required this.name,
+    required this.arguments,
+  });
+
+  final String id;
+  final String name;
+  final String arguments;
+}
+
+/// Data class representing the result of a tool execution
+class ToolResult {
+  const ToolResult({
+    required this.toolCallId,
+    required this.content,
+  });
+
+  final String toolCallId;
+  final String content;
+}
+
 /// Data class describing GenerationOptions sent from Dart to Swift.
 class GenerationOptionsRequest {
   const GenerationOptionsRequest({
@@ -28,11 +82,15 @@ class ChatRequest {
     required this.sessionId,
     required this.prompt,
     this.options,
+    this.tools,
+    this.toolResults,
   });
 
   final String sessionId;
   final String prompt;
   final GenerationOptionsRequest? options;
+  final List<ToolDefinition>? tools;
+  final List<ToolResult>? toolResults;
 }
 
 /// Data class for streaming request routed to an existing session.
@@ -42,12 +100,16 @@ class ChatStreamRequest {
     required this.sessionId,
     required this.prompt,
     this.options,
+    this.tools,
+    this.toolResults,
   });
 
   final String streamId;
   final String sessionId;
   final String prompt;
   final GenerationOptionsRequest? options;
+  final List<ToolDefinition>? tools;
+  final List<ToolResult>? toolResults;
 }
 
 /// Data class for transcript entries returned from Swift
@@ -72,12 +134,14 @@ class ChatResponse {
     this.rawContent,
     this.transcriptEntries,
     this.errorMessage,
+    this.toolCalls,
   });
 
   final String content;
   final String? rawContent;
   final List<TranscriptEntry?>? transcriptEntries;
   final String? errorMessage;
+  final List<ToolCall>? toolCalls;
 }
 
 /// Data class describing a request to create or configure a session

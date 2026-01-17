@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 
 import 'src/foundation_models_api.g.dart';
 
+/// Callback type for handling tool execution requests.
+typedef ToolHandler = Future<String> Function(String toolName, String arguments);
+
 /// Guardrail configuration levels matching native guardrail options.
 enum GuardrailLevel { strict, standard, permissive }
 
@@ -69,6 +72,7 @@ class LanguageModelSession {
     this.guardrailLevel,
     FoundationModelsApi? api,
     bool isMock = false,
+    this.toolHandler,
   }) : _api = api ?? FoundationModelsApi(),
        _isMock = isMock,
        _sessionId = _generateSessionId();
@@ -78,8 +82,10 @@ class LanguageModelSession {
   final String _sessionId;
   final String? instructions;
   final GuardrailLevel? guardrailLevel;
+  final ToolHandler? toolHandler;
 
   bool _isInitialized = false;
+  List<ToolDefinition>? _registeredTools;
 
   /// Lazily initialize the native session if needed.
   Future<void> _ensureInitialized() async {
@@ -109,6 +115,8 @@ class LanguageModelSession {
   Future<ChatResponse> respond({
     required String prompt,
     GenerationOptionsRequest? options,
+    List<ToolDefinition>? tools,
+    List<ToolResult>? toolResults,
   }) async {
     if (_isMock) {
       return ChatResponse(
@@ -134,10 +142,17 @@ class LanguageModelSession {
 
     await _ensureInitialized();
 
+    // Store tools for subsequent requests in this session
+    if (tools != null) {
+      _registeredTools = tools;
+    }
+
     final request = ChatRequest(
       sessionId: _sessionId,
       prompt: prompt,
       options: options,
+      tools: tools ?? _registeredTools,
+      toolResults: toolResults,
     );
 
     return _api.sendPromptToSession(request);
@@ -147,6 +162,8 @@ class LanguageModelSession {
   Stream<StreamChunk> streamResponse({
     required String prompt,
     GenerationOptionsRequest? options,
+    List<ToolDefinition>? tools,
+    List<ToolResult>? toolResults,
   }) {
     final streamId = _generateStreamId();
 
@@ -162,6 +179,11 @@ class LanguageModelSession {
         errorMessage: null,
       );
       return Stream<StreamChunk>.value(chunk);
+    }
+
+    // Store tools for subsequent requests in this session
+    if (tools != null) {
+      _registeredTools = tools;
     }
 
     final controller = StreamController<StreamChunk>();
@@ -199,6 +221,8 @@ class LanguageModelSession {
           sessionId: _sessionId,
           prompt: prompt,
           options: options,
+          tools: tools ?? _registeredTools,
+          toolResults: toolResults,
         );
         await _api.startStream(request);
       } catch (error, stack) {
@@ -223,6 +247,78 @@ class LanguageModelSession {
     };
 
     return controller.stream;
+  }
+
+  /// Execute a tool call workflow: send prompt, handle tool calls automatically, and return final response.
+  ///
+  /// This method handles the complete tool calling loop:
+  /// 1. Sends the initial prompt with tools
+  /// 2. If the model requests tool calls, executes them using [toolHandler]
+  /// 3. Sends tool results back to the model
+  /// 4. Returns the final response
+  ///
+  /// Requires [toolHandler] to be set in the session.
+  Future<ChatResponse> executeWithTools({
+    required String prompt,
+    required List<ToolDefinition> tools,
+    GenerationOptionsRequest? options,
+    int maxIterations = 5,
+  }) async {
+    if (toolHandler == null) {
+      throw StateError('toolHandler must be set to use executeWithTools');
+    }
+
+    var currentPrompt = prompt;
+    var iteration = 0;
+
+    while (iteration < maxIterations) {
+      final response = await respond(
+        prompt: currentPrompt,
+        options: options,
+        tools: tools,
+      );
+
+      // If no tool calls, return the response
+      if (response.toolCalls == null || response.toolCalls!.isEmpty) {
+        return response;
+      }
+
+      // Execute tool calls
+      final toolResults = <ToolResult>[];
+      for (final toolCall in response.toolCalls!) {
+        try {
+          final result = await toolHandler!(toolCall.name, toolCall.arguments);
+          toolResults.add(ToolResult(
+            toolCallId: toolCall.id,
+            content: result,
+          ));
+        } catch (e) {
+          toolResults.add(ToolResult(
+            toolCallId: toolCall.id,
+            content: 'Error: $e',
+          ));
+        }
+      }
+
+      // Send tool results back
+      final followUpResponse = await respond(
+        prompt: '',  // Empty prompt when just sending tool results
+        options: options,
+        tools: tools,
+        toolResults: toolResults,
+      );
+
+      // If the model made more tool calls, continue the loop
+      if (followUpResponse.toolCalls != null &&
+          followUpResponse.toolCalls!.isNotEmpty) {
+        iteration++;
+        continue;
+      }
+
+      return followUpResponse;
+    }
+
+    throw StateError('Maximum tool iterations exceeded');
   }
 
   /// Dispose of the native session resources.
@@ -297,6 +393,7 @@ class FoundationModelsFramework {
   LanguageModelSession createSession({
     String? instructions,
     GuardrailLevel? guardrailLevel,
+    ToolHandler? toolHandler,
   }) {
     if (_isMock) {
       return LanguageModelSession(
@@ -304,12 +401,14 @@ class FoundationModelsFramework {
         guardrailLevel: guardrailLevel,
         api: _api,
         isMock: true,
+        toolHandler: toolHandler,
       );
     }
     return LanguageModelSession(
       instructions: instructions,
       guardrailLevel: guardrailLevel,
       api: _api,
+      toolHandler: toolHandler,
     );
   }
 

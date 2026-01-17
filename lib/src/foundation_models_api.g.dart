@@ -29,6 +29,224 @@ bool _deepEquals(Object? a, Object? b) {
 }
 
 
+/// Data class describing a tool parameter schema for function calling
+class ToolParameterSchema {
+  ToolParameterSchema({
+    required this.type,
+    this.description,
+    this.properties,
+    this.required,
+    this.items,
+  });
+
+  String type;
+
+  String? description;
+
+  Map<String, ToolParameterSchema>? properties;
+
+  List<String>? required;
+
+  ToolParameterSchema? items;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      type,
+      description,
+      properties?.map((String key, ToolParameterSchema value) => MapEntry<String, Object?>(key, value.encode())).toList(),
+      required,
+      items?.encode(),
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static ToolParameterSchema decode(Object result) {
+    result as List<Object?>;
+    return ToolParameterSchema(
+      type: result[0]! as String,
+      description: result[1] as String?,
+      properties: (result[2] as Map<Object?, Object?>?)?.map<String, ToolParameterSchema>(
+        (Object? key, Object? value) => MapEntry<String, ToolParameterSchema>(
+          key! as String,
+          ToolParameterSchema.decode(value! as List<Object?>),
+        ),
+      ),
+      required: (result[3] as List<Object?>?)?.cast<String>(),
+      items: result[4] != null ? ToolParameterSchema.decode(result[4]! as List<Object?>) : null,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ToolParameterSchema || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList());
+}
+
+/// Data class describing a tool/function that can be called by the model
+class ToolDefinition {
+  ToolDefinition({
+    required this.name,
+    this.description,
+    this.parameters,
+  });
+
+  String name;
+
+  String? description;
+
+  ToolParameterSchema? parameters;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      name,
+      description,
+      parameters?.encode(),
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static ToolDefinition decode(Object result) {
+    result as List<Object?>;
+    return ToolDefinition(
+      name: result[0]! as String,
+      description: result[1] as String?,
+      parameters: result[2] != null ? ToolParameterSchema.decode(result[2]! as List<Object?>) : null,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ToolDefinition || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList());
+}
+
+/// Data class representing a tool call made by the model
+class ToolCall {
+  ToolCall({
+    required this.id,
+    required this.name,
+    required this.arguments,
+  });
+
+  String id;
+
+  String name;
+
+  String arguments;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      id,
+      name,
+      arguments,
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static ToolCall decode(Object result) {
+    result as List<Object?>;
+    return ToolCall(
+      id: result[0]! as String,
+      name: result[1]! as String,
+      arguments: result[2]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ToolCall || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList());
+}
+
+/// Data class representing the result of a tool execution
+class ToolResult {
+  ToolResult({
+    required this.toolCallId,
+    required this.content,
+  });
+
+  String toolCallId;
+
+  String content;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      toolCallId,
+      content,
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static ToolResult decode(Object result) {
+    result as List<Object?>;
+    return ToolResult(
+      toolCallId: result[0]! as String,
+      content: result[1]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ToolResult || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList());
+}
+
 class GenerationOptionsRequest {
   GenerationOptionsRequest({
     this.temperature,
@@ -91,6 +309,8 @@ class ChatRequest {
     required this.sessionId,
     required this.prompt,
     this.options,
+    this.tools,
+    this.toolResults,
   });
 
   String sessionId;
@@ -99,11 +319,17 @@ class ChatRequest {
 
   GenerationOptionsRequest? options;
 
+  List<ToolDefinition>? tools;
+
+  List<ToolResult>? toolResults;
+
   List<Object?> _toList() {
     return <Object?>[
       sessionId,
       prompt,
       options?.encode(),
+      tools?.map((ToolDefinition e) => e.encode()).toList(),
+      toolResults?.map((ToolResult e) => e.encode()).toList(),
     ];
   }
 
@@ -119,6 +345,8 @@ class ChatRequest {
       options: result[2] != null
           ? GenerationOptionsRequest.decode(result[2]! as List<Object?>)
           : null,
+      tools: (result[3] as List<Object?>?)?.map((Object? e) => ToolDefinition.decode(e as List<Object?>)).toList(),
+      toolResults: (result[4] as List<Object?>?)?.map((Object? e) => ToolResult.decode(e as List<Object?>)).toList(),
     );
   }
 
@@ -145,6 +373,8 @@ class ChatStreamRequest {
     required this.sessionId,
     required this.prompt,
     this.options,
+    this.tools,
+    this.toolResults,
   });
 
   String streamId;
@@ -155,12 +385,18 @@ class ChatStreamRequest {
 
   GenerationOptionsRequest? options;
 
+  List<ToolDefinition>? tools;
+
+  List<ToolResult>? toolResults;
+
   List<Object?> _toList() {
     return <Object?>[
       streamId,
       sessionId,
       prompt,
       options?.encode(),
+      tools?.map((ToolDefinition e) => e.encode()).toList(),
+      toolResults?.map((ToolResult e) => e.encode()).toList(),
     ];
   }
 
@@ -177,10 +413,13 @@ class ChatStreamRequest {
       options: result[3] != null
           ? GenerationOptionsRequest.decode(result[3]! as List<Object?>)
           : null,
+      tools: (result[4] as List<Object?>?)?.map((Object? e) => ToolDefinition.decode(e as List<Object?>)).toList(),
+      toolResults: (result[5] as List<Object?>?)?.map((Object? e) => ToolResult.decode(e as List<Object?>)).toList(),
     );
   }
 
   @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
     if (other is! ChatStreamRequest || other.runtimeType != runtimeType) {
       return false;
@@ -192,6 +431,7 @@ class ChatStreamRequest {
   }
 
   @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
   int get hashCode => Object.hashAll(_toList());
 }
 
@@ -258,6 +498,7 @@ class ChatResponse {
     this.rawContent,
     this.transcriptEntries,
     this.errorMessage,
+    this.toolCalls,
   });
 
   String content;
@@ -268,12 +509,15 @@ class ChatResponse {
 
   String? errorMessage;
 
+  List<ToolCall>? toolCalls;
+
   List<Object?> _toList() {
     return <Object?>[
       content,
       rawContent,
       transcriptEntries?.map((TranscriptEntry? e) => e?.encode()).toList(),
       errorMessage,
+      toolCalls?.map((ToolCall e) => e.encode()).toList(),
     ];
   }
 
@@ -291,6 +535,7 @@ class ChatResponse {
               : null)
           .toList(),
       errorMessage: result[3] as String?,
+      toolCalls: (result[4] as List<Object?>?)?.map((Object? e) => ToolCall.decode(e as List<Object?>)).toList(),
     );
   }
 
@@ -389,7 +634,8 @@ class AvailabilityResponse {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AvailabilityResponse decode(Object result) {
     result as List<Object?>;
@@ -415,8 +661,7 @@ class AvailabilityResponse {
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
+  int get hashCode => Object.hashAll(_toList());
 }
 
 
@@ -424,26 +669,38 @@ class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
   void writeValue(WriteBuffer buffer, Object? value) {
-    if (value is GenerationOptionsRequest) {
+    if (value is ToolParameterSchema) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    } else if (value is ChatRequest) {
+    } else if (value is ToolDefinition) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    } else if (value is ChatStreamRequest) {
+    } else if (value is ToolCall) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    } else if (value is TranscriptEntry) {
+    } else if (value is ToolResult) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    } else if (value is ChatResponse) {
+    } else if (value is GenerationOptionsRequest) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    } else if (value is SessionRequest) {
+    } else if (value is ChatRequest) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    } else if (value is AvailabilityResponse) {
+    } else if (value is ChatStreamRequest) {
       buffer.putUint8(135);
+      writeValue(buffer, value.encode());
+    } else if (value is TranscriptEntry) {
+      buffer.putUint8(136);
+      writeValue(buffer, value.encode());
+    } else if (value is ChatResponse) {
+      buffer.putUint8(137);
+      writeValue(buffer, value.encode());
+    } else if (value is SessionRequest) {
+      buffer.putUint8(138);
+      writeValue(buffer, value.encode());
+    } else if (value is AvailabilityResponse) {
+      buffer.putUint8(139);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -454,18 +711,26 @@ class _PigeonCodec extends StandardMessageCodec {
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
       case 129:
-        return GenerationOptionsRequest.decode(readValue(buffer)!);
+        return ToolParameterSchema.decode(readValue(buffer)!);
       case 130:
-        return ChatRequest.decode(readValue(buffer)!);
+        return ToolDefinition.decode(readValue(buffer)!);
       case 131:
-        return ChatStreamRequest.decode(readValue(buffer)!);
+        return ToolCall.decode(readValue(buffer)!);
       case 132:
-        return TranscriptEntry.decode(readValue(buffer)!);
+        return ToolResult.decode(readValue(buffer)!);
       case 133:
-        return ChatResponse.decode(readValue(buffer)!);
+        return GenerationOptionsRequest.decode(readValue(buffer)!);
       case 134:
-        return SessionRequest.decode(readValue(buffer)!);
+        return ChatRequest.decode(readValue(buffer)!);
       case 135:
+        return ChatStreamRequest.decode(readValue(buffer)!);
+      case 136:
+        return TranscriptEntry.decode(readValue(buffer)!);
+      case 137:
+        return ChatResponse.decode(readValue(buffer)!);
+      case 138:
+        return SessionRequest.decode(readValue(buffer)!);
+      case 139:
         return AvailabilityResponse.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);

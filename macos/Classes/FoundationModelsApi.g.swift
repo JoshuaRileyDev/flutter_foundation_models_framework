@@ -126,7 +126,150 @@ func deepHashFoundationModelsApi(value: Any?, hasher: inout Hasher) {
   return hasher.combine(String(describing: value))
 }
 
-    
+struct ToolParameterSchema: Hashable {
+  var type: String
+  var description: String? = nil
+  var properties: [String: ToolParameterSchema]? = nil
+  var required: [String]? = nil
+  var items: ToolParameterSchema? = nil
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ToolParameterSchema? {
+    let type = pigeonVar_list[0] as! String
+    let description: String? = nilOrValue(pigeonVar_list[1])
+    var properties: [String: ToolParameterSchema]? = nil
+    if let propertiesDict = pigeonVar_list[2] as? [AnyHashable: Any] {
+      properties = propertiesDict.mapValues { value in
+        guard let list = value as? [Any?] else { fatalError() }
+        return ToolParameterSchema.fromList(list)!
+      }
+    }
+    let required: [String]? = nilOrValue(pigeonVar_list[3])
+    var items: ToolParameterSchema? = nil
+    if let itemsList = pigeonVar_list[4] as? [Any?] {
+      items = ToolParameterSchema.fromList(itemsList)
+    }
+
+    return ToolParameterSchema(
+      type: type,
+      description: description,
+      properties: properties,
+      required: required,
+      items: items
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      type,
+      description,
+      properties?.mapValues { $0.toList() },
+      required,
+      items?.toList(),
+    ]
+  }
+  static func == (lhs: ToolParameterSchema, rhs: ToolParameterSchema) -> Bool {
+    return deepEqualsFoundationModelsApi(lhs.toList(), rhs.toList())
+  }
+  func hash(into hasher: inout Hasher) {
+    deepHashFoundationModelsApi(value: toList(), hasher: &hasher)
+  }
+}
+
+struct ToolDefinition: Hashable {
+  var name: String
+  var description: String? = nil
+  var parameters: ToolParameterSchema? = nil
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ToolDefinition? {
+    let name = pigeonVar_list[0] as! String
+    let description: String? = nilOrValue(pigeonVar_list[1])
+    var parameters: ToolParameterSchema? = nil
+    if let parametersList = pigeonVar_list[2] as? [Any?] {
+      parameters = ToolParameterSchema.fromList(parametersList)
+    }
+
+    return ToolDefinition(
+      name: name,
+      description: description,
+      parameters: parameters
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      name,
+      description,
+      parameters?.toList(),
+    ]
+  }
+  static func == (lhs: ToolDefinition, rhs: ToolDefinition) -> Bool {
+    return deepEqualsFoundationModelsApi(lhs.toList(), rhs.toList())
+  }
+  func hash(into hasher: inout Hasher) {
+    deepHashFoundationModelsApi(value: toList(), hasher: &hasher)
+  }
+}
+
+struct ToolCall: Hashable {
+  var id: String
+  var name: String
+  var arguments: String
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ToolCall? {
+    let id = pigeonVar_list[0] as! String
+    let name = pigeonVar_list[1] as! String
+    let arguments = pigeonVar_list[2] as! String
+
+    return ToolCall(
+      id: id,
+      name: name,
+      arguments: arguments
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      id,
+      name,
+      arguments,
+    ]
+  }
+  static func == (lhs: ToolCall, rhs: ToolCall) -> Bool {
+    return deepEqualsFoundationModelsApi(lhs.toList(), rhs.toList())
+  }
+  func hash(into hasher: inout Hasher) {
+    deepHashFoundationModelsApi(value: toList(), hasher: &hasher)
+  }
+}
+
+struct ToolResult: Hashable {
+  var toolCallId: String
+  var content: String
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> ToolResult? {
+    let toolCallId = pigeonVar_list[0] as! String
+    let content = pigeonVar_list[1] as! String
+
+    return ToolResult(
+      toolCallId: toolCallId,
+      content: content
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      toolCallId,
+      content,
+    ]
+  }
+  static func == (lhs: ToolResult, rhs: ToolResult) -> Bool {
+    return deepEqualsFoundationModelsApi(lhs.toList(), rhs.toList())
+  }
+  func hash(into hasher: inout Hasher) {
+    deepHashFoundationModelsApi(value: toList(), hasher: &hasher)
+  }
+}
+
 
 struct GenerationOptionsRequest: Hashable {
   var temperature: Double? = nil
@@ -169,6 +312,8 @@ struct ChatRequest: Hashable {
   var sessionId: String
   var prompt: String
   var options: GenerationOptionsRequest? = nil
+  var tools: [ToolDefinition]? = nil
+  var toolResults: [ToolResult]? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -179,11 +324,21 @@ struct ChatRequest: Hashable {
     if let optionsList = pigeonVar_list[2] as? [Any?] {
       options = GenerationOptionsRequest.fromList(optionsList)
     }
+    var tools: [ToolDefinition]? = nil
+    if let toolsList = pigeonVar_list[3] as? [Any?] {
+      tools = toolsList.map { ToolDefinition.fromList($0 as! [Any?])! }
+    }
+    var toolResults: [ToolResult]? = nil
+    if let toolResultsList = pigeonVar_list[4] as? [Any?] {
+      toolResults = toolResultsList.map { ToolResult.fromList($0 as! [Any?])! }
+    }
 
     return ChatRequest(
       sessionId: sessionId,
       prompt: prompt,
-      options: options
+      options: options,
+      tools: tools,
+      toolResults: toolResults
     )
   }
   func toList() -> [Any?] {
@@ -191,6 +346,8 @@ struct ChatRequest: Hashable {
       sessionId,
       prompt,
       options?.toList(),
+      tools?.map { $0.toList() },
+      toolResults?.map { $0.toList() },
     ]
   }
   static func == (lhs: ChatRequest, rhs: ChatRequest) -> Bool {
@@ -206,6 +363,8 @@ struct ChatStreamRequest: Hashable {
   var sessionId: String
   var prompt: String
   var options: GenerationOptionsRequest? = nil
+  var tools: [ToolDefinition]? = nil
+  var toolResults: [ToolResult]? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -217,12 +376,22 @@ struct ChatStreamRequest: Hashable {
     if let optionsList = pigeonVar_list[3] as? [Any?] {
       options = GenerationOptionsRequest.fromList(optionsList)
     }
+    var tools: [ToolDefinition]? = nil
+    if let toolsList = pigeonVar_list[4] as? [Any?] {
+      tools = toolsList.map { ToolDefinition.fromList($0 as! [Any?])! }
+    }
+    var toolResults: [ToolResult]? = nil
+    if let toolResultsList = pigeonVar_list[5] as? [Any?] {
+      toolResults = toolResultsList.map { ToolResult.fromList($0 as! [Any?])! }
+    }
 
     return ChatStreamRequest(
       streamId: streamId,
       sessionId: sessionId,
       prompt: prompt,
-      options: options
+      options: options,
+      tools: tools,
+      toolResults: toolResults
     )
   }
   func toList() -> [Any?] {
@@ -231,6 +400,8 @@ struct ChatStreamRequest: Hashable {
       sessionId,
       prompt,
       options?.toList(),
+      tools?.map { $0.toList() },
+      toolResults?.map { $0.toList() },
     ]
   }
   static func == (lhs: ChatStreamRequest, rhs: ChatStreamRequest) -> Bool {
@@ -283,6 +454,7 @@ struct ChatResponse: Hashable {
   var rawContent: String? = nil
   var transcriptEntries: [TranscriptEntry?]? = nil
   var errorMessage: String? = nil
+  var toolCalls: [ToolCall]? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -297,12 +469,17 @@ struct ChatResponse: Hashable {
       }
     }
     let errorMessage: String? = nilOrValue(pigeonVar_list[3])
+    var toolCalls: [ToolCall]? = nil
+    if let toolCallsList = pigeonVar_list[4] as? [Any?] {
+      toolCalls = toolCallsList.map { ToolCall.fromList($0 as! [Any?])! }
+    }
 
     return ChatResponse(
       content: content,
       rawContent: rawContent,
       transcriptEntries: transcriptEntries,
-      errorMessage: errorMessage
+      errorMessage: errorMessage,
+      toolCalls: toolCalls
     )
   }
   func toList() -> [Any?] {
@@ -311,6 +488,7 @@ struct ChatResponse: Hashable {
       rawContent,
       transcriptEntries?.map { $0?.toList() },
       errorMessage,
+      toolCalls?.map { $0.toList() },
     ]
   }
   static func == (lhs: ChatResponse, rhs: ChatResponse) -> Bool {

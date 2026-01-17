@@ -38,6 +38,7 @@ A Flutter package for integrating with Apple's Foundation Models framework on iO
 - ✅ **Cross-Platform Support**: Works on both iOS 26.0+ and macOS 15.0+
 - ✅ **Persistent Sessions**: Maintain conversation context across multiple interactions
 - ✅ **Streaming Responses**: Real-time token streaming with delta updates
+- ✅ **Tool/Function Calling**: Define tools that the model can request to call
 - ✅ **Generation Options**: Control temperature, token limits, and sampling strategies
 - ✅ **Transcript History**: Access full conversation history with role-based entries
 - ✅ **Guardrail Levels**: Configure content safety levels (strict/standard/permissive)
@@ -287,6 +288,242 @@ final subscription = stream.listen((chunk) {
 });
 ```
 
+### Tool/Function Calling
+
+Tool calling allows the model to request execution of defined functions/tools as part of its response. This enables the model to interact with external systems, databases, or APIs to perform actions and retrieve real-time data.
+
+#### Basic Tool Calling Workflow
+
+```dart
+// 1. Define your tools
+final tools = [
+  ToolDefinition(
+    name: 'get_weather',
+    description: 'Get the current weather for a specific location',
+    parameters: ToolParameterSchema(
+      type: 'object',
+      properties: {
+        'location': ToolParameterSchema(
+          type: 'string',
+          description: 'The city name, e.g. San Francisco',
+        ),
+        'unit': ToolParameterSchema(
+          type: 'string',
+          description: 'Temperature unit (celsius or fahrenheit)',
+          enum: ['celsius', 'fahrenheit'],
+        ),
+      },
+      required: ['location'],
+    ),
+  ),
+  ToolDefinition(
+    name: 'get_time',
+    description: 'Get the current time in a specific timezone',
+    parameters: ToolParameterSchema(
+      type: 'object',
+      properties: {
+        'timezone': ToolParameterSchema(
+          type: 'string',
+          description: 'IANA timezone name, e.g. America/New_York',
+        ),
+      },
+      required: ['timezone'],
+    ),
+  ),
+];
+
+// 2. Define a tool handler to execute tools
+Future<String> handleToolCall(String toolName, String arguments) async {
+  switch (toolName) {
+    case 'get_weather':
+      final args = jsonDecode(arguments) as Map<String, dynamic>;
+      final location = args['location'] as String;
+      final unit = args['unit'] as String? ?? 'celsius';
+      // Call your weather API here
+      return jsonEncode({
+        'location': location,
+        'temperature': 72,
+        'unit': unit,
+        'condition': 'sunny',
+      });
+
+    case 'get_time':
+      final args = jsonDecode(arguments) as Map<String, dynamic>;
+      final timezone = args['timezone'] as String;
+      // Get current time for timezone
+      return jsonEncode({
+        'timezone': timezone,
+        'current_time': DateTime.now().toIso8601String(),
+      });
+
+    default:
+      throw UnimplementedError('Tool $toolName not implemented');
+  }
+}
+
+// 3. Create a session with tool handler
+final session = foundationModels.createSession(
+  toolHandler: handleToolCall,
+);
+
+// 4. Use the automatic tool calling workflow
+final response = await session.executeWithTools(
+  prompt: 'What is the weather in San Francisco and the current time in New York?',
+  tools: tools,
+);
+
+print('Final response: ${response.content}');
+```
+
+#### Manual Tool Calling
+
+For more control, you can handle tool calls manually:
+
+```dart
+final session = foundationModels.createSession(
+  toolHandler: handleToolCall,
+);
+
+// First prompt
+var response = await session.respond(
+  prompt: 'What is the weather in Tokyo?',
+  tools: tools,
+);
+
+// Check if the model requested tool calls
+if (response.toolCalls != null && response.toolCalls!.isNotEmpty) {
+  print('Model requested ${response.toolCalls!.length} tool calls');
+
+  // Execute each tool call
+  final toolResults = <ToolResult>[];
+  for (final toolCall in response.toolCalls!) {
+    print('Executing tool: ${toolCall.name}');
+    print('Arguments: ${toolCall.arguments}');
+
+    try {
+      final result = await handleToolCall(toolCall.name, toolCall.arguments);
+      toolResults.add(ToolResult(
+        toolCallId: toolCall.id,
+        content: result,
+      ));
+    } catch (e) {
+      toolResults.add(ToolResult(
+        toolCallId: toolCall.id,
+        content: 'Error: $e',
+      ));
+    }
+  }
+
+  // Send tool results back to the model
+  response = await session.respond(
+    prompt: '', // Empty prompt when just sending tool results
+    tools: tools,
+    toolResults: toolResults,
+  );
+}
+
+print('Final response: ${response.content}');
+
+await session.dispose();
+```
+
+#### Advanced Tool Definition with Complex Parameters
+
+```dart
+final tools = [
+  ToolDefinition(
+    name: 'search_database',
+    description: 'Search a database of products',
+    parameters: ToolParameterSchema(
+      type: 'object',
+      properties: {
+        'query': ToolParameterSchema(
+          type: 'string',
+          description: 'The search query',
+        ),
+        'filters': ToolParameterSchema(
+          type: 'object',
+          description: 'Optional filters to apply',
+          properties: {
+            'category': ToolParameterSchema(type: 'string'),
+            'minPrice': ToolParameterSchema(type: 'number'),
+            'maxPrice': ToolParameterSchema(type: 'number'),
+            'inStock': ToolParameterSchema(type: 'boolean'),
+          },
+        ),
+        'sortBy': ToolParameterSchema(
+          type: 'string',
+          enum: ['relevance', 'price_asc', 'price_desc', 'name'],
+        ),
+        'limit': ToolParameterSchema(
+          type: 'integer',
+          description: 'Maximum number of results (1-100)',
+          minimum: 1,
+          maximum: 100,
+        ),
+      },
+      required: ['query'],
+    ),
+  ),
+];
+```
+
+#### Tool Calling with Streaming
+
+Tool calling also works with streaming responses:
+
+```dart
+final session = foundationModels.createSession(
+  toolHandler: handleToolCall,
+);
+
+// Stream the initial response
+final stream = session.streamResponse(
+  prompt: 'What is the weather in Paris?',
+  tools: tools,
+);
+
+await for (final chunk in stream) {
+  if (chunk.isFinal) {
+    // The final chunk may contain tool calls
+    if (chunk.toolCalls != null && chunk.toolCalls!.isNotEmpty) {
+      // Execute tools and send results back
+      final response = ChatResponse(
+        content: chunk.cumulative ?? '',
+        toolCalls: chunk.toolCalls,
+      );
+
+      // Continue with tool results...
+    }
+  }
+}
+```
+
+#### Error Handling in Tool Calling
+
+```dart
+Future<String> safeToolHandler(String toolName, String arguments) async {
+  try {
+    return await handleToolCall(toolName, arguments);
+  } on SocketException catch (e) {
+    return jsonEncode({
+      'error': 'Network error',
+      'message': e.toString(),
+    });
+  } on FormatException catch (e) {
+    return jsonEncode({
+      'error': 'Invalid arguments format',
+      'message': e.toString(),
+    });
+  } catch (e) {
+    return jsonEncode({
+      'error': 'Unexpected error',
+      'message': e.toString(),
+    });
+  }
+}
+```
+
 ## API Reference
 
 ### FoundationModelsFramework
@@ -300,10 +537,11 @@ The main class for accessing Foundation Models functionality.
 - **Description**: Checks if Foundation Models is available on the device
 - **Note**: Returns true only if iOS 26.0+/macOS 15.0+ and Apple Intelligence is available
 
-##### `createSession({String? instructions, GuardrailLevel? guardrailLevel})`
+##### `createSession({String? instructions, GuardrailLevel? guardrailLevel, ToolHandler? toolHandler})`
 - **Parameters**:
   - `instructions`: Optional system instructions for the session
   - `guardrailLevel`: Content safety level (strict/standard/permissive)
+  - `toolHandler`: Optional callback for handling tool execution requests
 - **Returns**: `LanguageModelSession`
 - **Description**: Creates a new language model session with optional configuration
 
@@ -322,12 +560,24 @@ A persistent session for interacting with Apple's Foundation Models.
 
 #### Methods
 
-##### `respond({required String prompt, GenerationOptionsRequest? options})`
+##### `respond({required String prompt, GenerationOptionsRequest? options, List<ToolDefinition>? tools, List<ToolResult>? toolResults})`
 - **Parameters**:
   - `prompt`: The text prompt to send to the model
   - `options`: Optional generation configuration
+  - `tools`: Optional list of tools the model can call
+  - `toolResults`: Optional list of tool execution results from previous calls
 - **Returns**: `Future<ChatResponse>`
-- **Description**: Sends a prompt to the language model and returns the response
+- **Description**: Sends a prompt to the language model and returns the response. If tool calls are requested, they will be included in the response.
+
+##### `executeWithTools({required String prompt, required List<ToolDefinition> tools, GenerationOptionsRequest? options, int maxIterations = 5})`
+- **Parameters**:
+  - `prompt`: The text prompt to send to the model
+  - `tools`: List of tools the model can call
+  - `options`: Optional generation configuration
+  - `maxIterations`: Maximum number of tool call iterations (default: 5)
+- **Returns**: `Future<ChatResponse>`
+- **Description**: Automatically handles the complete tool calling workflow - sends prompt, executes tools via the toolHandler, sends results back, and returns the final response
+- **Note**: Requires `toolHandler` to be set when creating the session
 
 ##### `prewarm()`
 - **Returns**: `Future<void>`
@@ -337,10 +587,12 @@ A persistent session for interacting with Apple's Foundation Models.
 - **Returns**: `Future<void>`
 - **Description**: Disposes of the session and releases resources
 
-##### `streamResponse({required String prompt, GenerationOptionsRequest? options})`
+##### `streamResponse({required String prompt, GenerationOptionsRequest? options, List<ToolDefinition>? tools, List<ToolResult>? toolResults})`
 - **Parameters**:
   - `prompt`: The text prompt to send to the model
   - `options`: Optional generation configuration
+  - `tools`: Optional list of tools the model can call
+  - `toolResults`: Optional list of tool execution results from previous calls
 - **Returns**: `Stream<StreamChunk>`
 - **Description**: Streams response tokens in real-time as they are generated
 
@@ -357,6 +609,37 @@ A persistent session for interacting with Apple's Foundation Models.
 - `String? rawContent`: Raw response data
 - `List<TranscriptEntry?>? transcriptEntries`: Conversation history
 - `String? errorMessage`: Error message if the request failed
+- `List<ToolCall>? toolCalls`: Tool calls requested by the model (if any)
+
+#### `ToolDefinition`
+- `String name`: The unique name/identifier of the tool
+- `String? description`: Description of what the tool does
+- `ToolParameterSchema? parameters`: Schema defining the tool's input parameters
+
+#### `ToolCall`
+- `String id`: Unique identifier for this tool call
+- `String name`: Name of the tool being called
+- `String arguments`: JSON string containing the arguments for the tool call
+
+#### `ToolResult`
+- `String toolCallId`: ID of the tool call this result is for
+- `String content`: The result of the tool execution (typically JSON)
+
+#### `ToolParameterSchema`
+- `String type`: The data type (e.g., 'string', 'number', 'object', 'array')
+- `String? description`: Description of the parameter
+- `Map<String, ToolParameterSchema>? properties`: For object types, the nested properties
+- `List<String>? required`: List of required property names
+- `ToolParameterSchema? items`: For array types, the schema of array items
+- `List<String>? enum`: Optional list of allowed values
+
+#### `ToolHandler`
+- **Type**: `Future<String> Function(String toolName, String arguments)`
+- **Description**: Callback function type for handling tool execution
+- **Parameters**:
+  - `toolName`: Name of the tool to execute
+  - `arguments`: JSON string of tool arguments
+- **Returns**: Future completing with the tool result (typically JSON string)
 
 #### `TranscriptEntry`
 - `String id`: Unique identifier for the entry

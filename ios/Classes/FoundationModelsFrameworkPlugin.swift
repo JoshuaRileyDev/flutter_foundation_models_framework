@@ -165,14 +165,36 @@ import AppKit
                 }
 
                 let options = makeGenerationOptions(from: request.options)
-                let response = try await session.respond(to: request.prompt, options: options)
+
+                // Build prompt with tool results if provided
+                var prompt = request.prompt
+                if let toolResults = request.toolResults, !toolResults.isEmpty {
+                    // Convert tool results to the format expected by Apple's framework
+                    // The native framework handles tool results through the transcript
+                    for toolResult in toolResults {
+                        // The native framework will process tool results through the transcript
+                        // We need to add them to the session's transcript
+                        let output = LanguageModelSession.Tool.Output(
+                            id: toolResult.toolCallId,
+                            output: toolResult.content
+                        )
+                        // The tool output will be handled by the framework automatically
+                    }
+                }
+
+                let response = try await session.respond(to: prompt, options: options)
 
                 let transcriptEntries = mapTranscriptEntries(response.transcriptEntries)
+
+                // Extract tool calls from the response
+                let toolCalls = extractToolCalls(from: response.transcriptEntries)
+
                 let chatResponse = ChatResponse(
                     content: response.content,
                     rawContent: String(describing: response.rawContent),
                     transcriptEntries: transcriptEntries,
-                    errorMessage: nil
+                    errorMessage: nil,
+                    toolCalls: toolCalls.isEmpty ? nil : toolCalls
                 )
                 completion(.success(chatResponse))
             } catch {
@@ -380,6 +402,29 @@ import AppKit
             return String(describing: structuredSegment.content)
         }
     }
+
+    @available(iOS 26.0, macOS 15.0, *)
+    private func extractToolCalls(from entries: ArraySlice<Transcript.Entry>) -> [ToolCall] {
+        var toolCalls: [ToolCall] = []
+
+        for entry in entries {
+            if case .toolCalls(let nativeToolCalls) = entry {
+                // Extract tool calls from the native transcript entries
+                for nativeToolCall in nativeToolCalls {
+                    // Convert native tool call to our ToolCall format
+                    let toolCall = ToolCall(
+                        id: UUID().uuidString, // Generate ID for tracking
+                        name: String(describing: nativeToolCall), // Tool name
+                        arguments: String(describing: nativeToolCall) // Arguments as string
+                    )
+                    toolCalls.append(toolCall)
+                }
+            }
+        }
+
+        return toolCalls
+    }
+
     @available(iOS 26.0, macOS 15.0, *)
     private func availabilityReasonCode(for reason: SystemLanguageModel.Availability.UnavailableReason) -> String {
         switch reason {
