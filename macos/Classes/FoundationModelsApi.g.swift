@@ -127,11 +127,19 @@ func deepHashFoundationModelsApi(value: Any?, hasher: inout Hasher) {
 }
 
 class ToolParameterSchema: Hashable {
-  var type: String
+  var type: String = ""
   var description: String? = nil
   var properties: [String: ToolParameterSchema]? = nil
   var required: [String]? = nil
   var items: ToolParameterSchema? = nil
+
+  init(type: String = "", description: String? = nil, properties: [String: ToolParameterSchema]? = nil, required: [String]? = nil, items: ToolParameterSchema? = nil) {
+    self.type = type
+    self.description = description
+    self.properties = properties
+    self.required = required
+    self.items = items
+  }
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> ToolParameterSchema? {
