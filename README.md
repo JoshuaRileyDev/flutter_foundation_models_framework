@@ -49,12 +49,18 @@ A Flutter package for integrating with Apple's Foundation Models framework on iO
 
 ## Requirements
 
-- **iOS**: 26.0 or later
+### For App Installation
+- **iOS Minimum**: 15.0 or later (app can be installed, but features only work on iOS 26.0+)
 - **macOS**: 15.0 or later
 - **Flutter**: 3.0.0 or later
 - **Dart**: 3.8.1 or later
 - **Xcode**: 16.0 or later
-- **Apple Intelligence**: Must be enabled on device
+
+### For Foundation Models Features
+- **iOS**: 26.0 or later with Apple Intelligence enabled
+- **macOS**: 15.0 or later with Apple Intelligence enabled
+
+> **Important**: The package can be installed on iOS 15.0+ devices, but Foundation Models features will only function on iOS 26.0+ with Apple Intelligence. On unsupported devices, the `checkAvailability()` method will return an appropriate error.
 
 ## Installation
 
@@ -85,26 +91,41 @@ Without this step, the Foundation Models framework will not be available and the
 
 ### 1. Update iOS Deployment Target
 
-In your `ios/Podfile`, ensure the iOS deployment target is set to 26.0 or higher:
+In your `ios/Podfile`, set the iOS deployment target to 15.0 or higher:
 
 ```ruby
-platform :ios, '26.0'
+platform :ios, '15.0'
 ```
+
+> **Note**: While the app can be installed on iOS 15.0+, Foundation Models features will only work on iOS 26.0+ with Apple Intelligence. The package handles this gracefully through runtime availability checks.
 
 ### 2. Update iOS Project Settings
 
 In your `ios/Runner.xcodeproj`, set:
-- **iOS Deployment Target**: 26.0
+- **iOS Deployment Target**: 15.0
 - **Swift Language Version**: 5.0
 
 
 ## Usage
 
+The package uses `weak_frameworks` for FoundationModels, allowing your app to be installed on iOS 15.0+ devices. Features will be dynamically enabled/disabled based on device capabilities at runtime.
 
-**Physical Device (Recommended):**
+### Device Compatibility
+
+**Physical Device with iOS 26.0+ and Apple Intelligence:**
 - Full Foundation Models functionality
-- Real Apple Intelligence features
-- Requires iOS 26.0+ device
+- All features including tool calling and streaming
+- Real-time AI processing on-device
+
+**Physical Device with iOS 15.0 - 25.x:**
+- App can be installed
+- `checkAvailability()` will return appropriate error
+- Foundation Models features are not available
+
+**Simulator (Any iOS Version):**
+- App can be installed
+- Foundation Models is not available in simulators
+- Use `FoundationModelsFramework.mock()` for testing
 
 ### Checking Availability
 
@@ -701,8 +722,17 @@ try {
 ## Important Notes
 
 ### Device Compatibility
-- Foundation Models requires iOS 26.0 or later
+- **App Installation**: Requires iOS 15.0+ (using weak_frameworks for FoundationModels)
+- **Feature Availability**: Foundation Models features require iOS 26.0+ with Apple Intelligence
+- **Graceful Degradation**: The package handles availability checks at runtime and returns appropriate errors
+- **Simulators**: Foundation Models is not available in simulators (use mock for testing)
 - Only works on Apple Intelligence-enabled devices in supported regions
+
+### Architecture
+- The package uses `weak_frameworks` to link FoundationModels, which allows the app to build and install on iOS 15.0+
+- At runtime, the framework is only loaded on iOS 26.0+ devices with Apple Intelligence
+- On unsupported devices, `checkAvailability()` returns a descriptive error message
+- This enables a single app binary to support both older devices (without AI features) and newer devices (with AI features)
 
 ### Privacy and Performance
 - All processing happens on-device using Apple's Foundation Models
@@ -714,6 +744,7 @@ try {
 - Handle errors gracefully for better user experience
 - Consider providing fallback options for unsupported devices
 - Test on actual devices with Apple Intelligence enabled
+- Use `FoundationModelsFramework.mock()` for testing in simulators or on older devices
 
 ## Example App
 
