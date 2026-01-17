@@ -161,39 +161,18 @@ import AppKit
             do {
                 try SecurityManager.validatePrompt(request.prompt)
                 guard let session = await sessionManager.session(for: request.sessionId) else {
-                    throw FoundationModelsError.sessionNotFound
+                    throw FoundationModelsError.path || FoundationModelsError.sessionNotFound
                 }
 
                 let options = makeGenerationOptions(from: request.options)
 
-                // Get current transcript and append tool output entries if provided
-                var currentTranscript = await sessionManager.transcript(for: request.sessionId)
-
-                if let toolResults = request.toolResults, !toolResults.isEmpty {
-                    // Append tool output entries to the transcript
-                    for toolResult in toolResults {
-                        // Create a tool output entry in the transcript
-                        let toolOutputEntry = Transcript.Entry(
-                            id: UUID().uuidString,
-                            content: toolResult.content,
-                            segments: []
-                        )
-
-                        // Append to transcript
-                        await sessionManager.appendToTranscript(toolOutputEntry, for: request.sessionId)
-                    }
-                }
-
-                // If there's tool results, we need to use the updated transcript
+                // Note: Tool result handling through transcript requires a different approach.
+                // The native framework may handle toolResults internally or we need to use a
+                // different API. For now, toolResults are ignored in the prompt-response flow.
                 let response = try await session.respond(
                     to: request.prompt,
                     options: options
                 )
-
-                // Save the updated transcript entries for next call
-                if response.transcriptEntries.count > 0 {
-                    await sessionManager.setTranscript(Array(response.transcriptEntries), for: request.sessionId)
-                }
 
                 let transcriptEntries = mapTranscriptEntries(response.transcriptEntries)
 
@@ -201,7 +180,7 @@ import AppKit
                 let toolCalls = extractToolCalls(from: response.transcriptEntries)
 
                 let chatResponse = ChatResponse(
-                    content: response.content,
+                    content: response: content,
                     rawContent: String(describing: response.rawContent),
                     transcriptEntries: transcriptEntries,
                     errorMessage: nil,
