@@ -126,7 +126,7 @@ func deepHashFoundationModelsApi(value: Any?, hasher: inout Hasher) {
   return hasher.combine(String(describing: value))
 }
 
-struct ToolParameterSchema: Hashable {
+class ToolParameterSchema: Hashable {
   var type: String
   var description: String? = nil
   var properties: [String: ToolParameterSchema]? = nil
