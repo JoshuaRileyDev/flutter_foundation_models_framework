@@ -166,23 +166,11 @@ import AppKit
 
                 let options = makeGenerationOptions(from: request.options)
 
-                // Build prompt with tool results if provided
-                var prompt = request.prompt
-                if let toolResults = request.toolResults, !toolResults.isEmpty {
-                    // Convert tool results to the format expected by Apple's framework
-                    // The native framework handles tool results through the transcript
-                    for toolResult in toolResults {
-                        // The native framework will process tool results through the transcript
-                        // We need to add them to the session's transcript
-                        let output = LanguageModelSession.Tool.Output(
-                            id: toolResult.toolCallId,
-                            output: toolResult.content
-                        )
-                        // The tool output will be handled by the framework automatically
-                    }
-                }
-
-                let response = try await session.respond(to: prompt, options: options)
+                // Note: Tool results are passed in the request but need to be added
+                // to the transcript for the native framework to process them.
+                // This is a simplified implementation - full tool result handling
+                // would require appending tool output entries to the transcript.
+                let response = try await session.respond(to: request.prompt, options: options)
 
                 let transcriptEntries = mapTranscriptEntries(response.transcriptEntries)
 
