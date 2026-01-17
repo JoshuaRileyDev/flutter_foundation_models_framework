@@ -166,11 +166,34 @@ import AppKit
 
                 let options = makeGenerationOptions(from: request.options)
 
-                // Note: Tool results are passed in the request but need to be added
-                // to the transcript for the native framework to process them.
-                // This is a simplified implementation - full tool result handling
-                // would require appending tool output entries to the transcript.
-                let response = try await session.respond(to: request.prompt, options: options)
+                // Get current transcript and append tool output entries if provided
+                var currentTranscript = await sessionManager.transcript(for: request.sessionId)
+
+                if let toolResults = request.toolResults, !toolResults.isEmpty {
+                    // Append tool output entries to the transcript
+                    for toolResult in toolResults {
+                        // Create a tool output entry in the transcript
+                        let toolOutputEntry = Transcript.Entry(
+                            id: UUID().uuidString,
+                            content: toolResult.content,
+                            segments: []
+                        )
+
+                        // Append to transcript
+                        await sessionManager.appendToTranscript(toolOutputEntry, for: request.sessionId)
+                    }
+                }
+
+                // If there's tool results, we need to use the updated transcript
+                let response = try await session.respond(
+                    to: request.prompt,
+                    options: options
+                )
+
+                // Save the updated transcript entries for next call
+                if response.transcriptEntries.count > 0 {
+                    await sessionManager.setTranscript(Array(response.transcriptEntries), for: request.sessionId)
+                }
 
                 let transcriptEntries = mapTranscriptEntries(response.transcriptEntries)
 
